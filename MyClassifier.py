@@ -58,10 +58,10 @@ def compute_class_stats(fold):
 
     no = fold[fold[:, -1] == 'no'][:, :-1].astype(np.float64)  # filter on no, slice off the class, cast as float
     yes = fold[fold[:, -1] == 'yes'][:, :-1].astype(np.float64)
-    no_mean = np.mean(no, axis=0)
-    yes_mean = np.mean(yes, axis=0)
-    no_std = np.std(no, axis=0)
-    yes_std = np.std(yes, axis=0)
+    no_mean = np.mean(no, axis=0, dtype=np.float64)
+    yes_mean = np.mean(yes, axis=0, dtype=np.float64)
+    no_std = np.std(no, axis=0, ddof=1, dtype=np.float64) if no.shape[0] > 1 else 0
+    yes_std = np.std(yes, axis=0, ddof=1, dtype=np.float64) if yes.shape[0] > 1 else 0
 
     # zip (transpose) the (mean, ...) & (sd, ...) into (mean, sd), ... then add tag
     no_row = np.array([no_mean, no_std]).T
@@ -90,19 +90,26 @@ def compute_class_stats(fold):
     row2 = np.asarray(row2)
     header = np.vstack((row1, row2))
     fold = np.vstack((header, fold))
+    # pprint(fold)
     return fold
 
 
 def calc_probability(x, mean, std):
+    if std == 0:
+        return 1
     exp = math.exp(-(math.pow(x - mean, 2) / (2 * math.pow(std, 2))))
     return (1 / (math.sqrt(2 * math.pi) * std)) * exp
 
 
-def NB_predict(fold, test_data):
-    no_head = fold[0]
-    yes_head = fold[1]
+def NB_predict(train_data, test_data):
+    no_head = train_data[0]
+    yes_head = train_data[1]
     if isinstance(test_data, list):
         test_data = np.asarray(test_data)
+
+    counts = Counter(train_data[2:, -1])
+    p_no = counts['no'] / (counts['yes'] + counts['no'])
+    p_yes = counts['yes'] / (counts['yes'] + counts['no'])
 
     if test_data[0][-1] == 'yes' or test_data[0][-1] == 'no':
         test_data = test_data[:, :-1]
@@ -116,10 +123,11 @@ def NB_predict(fold, test_data):
             probs.append((no_prob, yes_prob))
         no_total = 1
         yes_total = 1
+
         for prob in probs:
             no_total *= prob[0]
             yes_total *= prob[1]
-        print('no' if no_total > yes_total else 'yes')
+        print('yes' if yes_total * p_yes >= no_total * p_no else 'no')
 
 
 ##### KNN
@@ -127,24 +135,38 @@ def euclid(vec1, vec2):
     return np.linalg.norm(vec1 - vec2)
 
 
-def KNN_predict(data, row, n):
+def KNN_predict(train_data, row, n):
+    # print('####')
+    # print('ROW')
+    # print('####')
+
     nearest = []
-    data = np.asarray(data)
+    train_data = np.asarray(train_data)
     search_row = np.asarray(row)
-    for row in data:
-        # print(search_row.shape)
-        # print(row.shape)
+    for row in train_data:
+
         row_snip = row
         if row.shape[0] > search_row.shape[0]:
-            # print('snip')
             row_snip = row[:-1]
-        new_dist = -euclid(search_row[:-1].astype(np.float64), row_snip[:-1].astype(np.float64))
+
+        new_dist = euclid(search_row[:-1].astype(np.float64), row_snip[:-1].astype(np.float64))
+        # print('DISTANCE', new_dist)
         if len(nearest) < n:
-            heapq.heappush(nearest, (new_dist, row[-1]))
+            # min(data, key=lambda t: t[1])
+            # print('pushed #')
+            nearest.append((new_dist, row[-1]))
+            # heapq.heappush(nearest, (new_dist, row[-1]))
         else:
-            if min(nearest)[0] < new_dist:
-                heapq.heapreplace(nearest, (new_dist, row[-1]))
+            maximum = max(nearest, key=lambda t: t[0])
+            # print('current max is', maximum)
+            if maximum[0] > new_dist:  # since values are negative, min is actually the largest dist
+                # print('pushed', new_dist)
+                nearest.remove(maximum)
+                nearest.append((new_dist, row[-1]))
+        # print(nearest)
     try:
+        # while nearest:
+        #     print(heapq.heappop(nearest))
         return mode([i[1] for i in nearest])
     except ValueError:
         return 'yes'
