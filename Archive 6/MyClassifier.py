@@ -30,22 +30,22 @@ def gen_folds(file, k=10):
     yeses = [x for x in file if x[-1] == 'yes']
     nos = [x for x in file if x[-1] == 'no']
     folds = []
-    with open('pima-folds.csv', 'w') as f:
-        writer = csv.writer(f)
-        fold_no = 1
-        for tup in sizes:
-            fold = []
-            for i in range(tup[0]):
-                fold.append(nos.pop())
-            for i in range(tup[1]):
-                fold.append(yeses.pop())
-            folds.append(np.asarray(fold))
-            writer.writerow(['fold' + str(fold_no)])
-            for row in fold:
-                writer.writerow(row)
-            fold_no += 1
-
-    return np.asarray(np.asarray(folds))
+    # with open('pima-folds.csv', 'w') as f:
+    #     writer = csv.writer(f)
+    #     fold_no = 1
+    #     for tup in sizes:
+    #         fold = []
+    #         for i in range(tup[0]):
+    #             fold.append(nos.pop())
+    #         for i in range(tup[1]):
+    #             fold.append(yeses.pop())
+    #         folds.append(np.asarray(fold))
+    #         writer.writerow(['fold' + str(fold_no)])
+    #         for row in fold:
+    #             writer.writerow(row)
+    #         fold_no += 1
+    #
+    # return np.asarray(np.asarray(folds))
 
 
 def compute_class_stats(fold):
@@ -97,19 +97,15 @@ def compute_class_stats(fold):
 def calc_probability(x, mean, std):
     if std == 0:
         return 1
-    exp = math.exp(-(math.pow(x - mean, 2) / (2 * math.pow(std, 2))))
+    exp = math.exp(-(math.  pow(x - mean, 2) / (2 * math.pow(std, 2))))
     return (1 / (math.sqrt(2 * math.pi) * std)) * exp
 
 
-def NB_predict(train_data, test_data):
-    no_head = train_data[0]
-    yes_head = train_data[1]
+def NB_predict(fold, test_data):
+    no_head = fold[0]
+    yes_head = fold[1]
     if isinstance(test_data, list):
         test_data = np.asarray(test_data)
-
-    counts = Counter(train_data[2:, -1])
-    p_no = counts['no'] / (counts['yes'] + counts['no'])
-    p_yes = counts['yes'] / (counts['yes'] + counts['no'])
 
     if test_data[0][-1] == 'yes' or test_data[0][-1] == 'no':
         test_data = test_data[:, :-1]
@@ -127,7 +123,7 @@ def NB_predict(train_data, test_data):
         for prob in probs:
             no_total *= prob[0]
             yes_total *= prob[1]
-        print('yes' if yes_total * p_yes >= no_total * p_no else 'no')
+        print('yes' if yes_total >= no_total else 'no')
 
 
 ##### KNN
@@ -135,25 +131,22 @@ def euclid(vec1, vec2):
     return np.linalg.norm(vec1 - vec2)
 
 
-def KNN_predict(train_data, row, n):
+def KNN_predict(data, row, n):
     nearest = []
-    train_data = np.asarray(train_data)
+    data = np.asarray(data)
     search_row = np.asarray(row)
-    for row in train_data:
-        # row_snip = row
-        # if row.shape[0] > search_row.shape[0]:
-        #     row_snip = row[:-1]
+    for row in data:
+        row_snip = row
+        if row.shape[0] > search_row.shape[0]:
+            row_snip = row[:-1]
 
-        new_dist = -euclid(search_row.astype(np.float64), row[:-1].astype(np.float64))
+        new_dist = -euclid(search_row[:-1].astype(np.float64), row_snip[:-1].astype(np.float64))
         if len(nearest) < n:
-            # print('push #')
             heapq.heappush(nearest, (new_dist, row[-1]))
         else:
             if min(nearest)[0] < new_dist:
-                # print('push', (new_dist, row[-1]))
                 heapq.heapreplace(nearest, (new_dist, row[-1]))
         # print(nearest)
-        heapq.heapify(nearest)
     try:
         return mode([i[1] for i in nearest])
     except ValueError:
@@ -164,7 +157,6 @@ if __name__ == '__main__':
     train_data = read(sys.argv[1])
     test_data = read(sys.argv[2])
     folds = gen_folds(train_data)
-    pprint(folds.size)
     if sys.argv[3] == 'NB':
         NB_predict(compute_class_stats(train_data), test_data)
     else:
@@ -172,5 +164,3 @@ if __name__ == '__main__':
         n = int(sys.argv[3][0])
         for row in test_data:
             print(KNN_predict(train_data, row, n))
-        # print(test_data[600])
-        # print(train_data[600])
