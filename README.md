@@ -5,6 +5,7 @@ Evaluated on the famous Pima Indians Diabetes data set https://www.kaggle.com/uc
 stratified 10-fold cross-validation (implementation of cross-validation included).
 
 To run the classifier:
+`cd src`
 `python bayes_knn.py training.txt testing.txt { algorithm } `
 
 for Naive Bayes `{ algorithm } ` = NB 
