@@ -8,6 +8,7 @@ To run the classifier:
 `python bayes_knn.py training.txt testing.txt { algorithm } `
 
 for Naive Bayes `{ algorithm } ` = NB 
+
 for KNN `{ algorithm } ` = 1NN or 2NN or 3NN or 4NN or 5NN
 
 e.g. using the data set provided: 
