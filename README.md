@@ -6,7 +6,7 @@ stratified 10-fold cross-validation (implementation of cross-validation included
 
 To run the classifier:
 
-`cd src
+`cd src \n
 python bayes_knn.py training.txt testing.txt { algorithm } `
 
 for Naive Bayes `{ algorithm } ` = NB 
