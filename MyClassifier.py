@@ -5,10 +5,7 @@ import numpy as np
 import heapq
 from collections import Counter
 from statistics import mode
-from pprint import pprint
 
-
-# times_pregnant,plasma_glucose,blood_pressure,skin_thickness,insulin_level,bmi,diabetes_pedigree,age,class
 
 def read(file):
     with open(file) as f:
@@ -30,20 +27,20 @@ def gen_folds(file, k=10):
     yeses = [x for x in file if x[-1] == 'yes']
     nos = [x for x in file if x[-1] == 'no']
     folds = []
-    with open('pima-folds.csv', 'w') as f:
-        writer = csv.writer(f)
-        fold_no = 1
-        for tup in sizes:
-            fold = []
-            for i in range(tup[0]):
-                fold.append(nos.pop())
-            for i in range(tup[1]):
-                fold.append(yeses.pop())
-            folds.append(np.asarray(fold))
-            writer.writerow(['fold' + str(fold_no)])
-            for row in fold:
-                writer.writerow(row)
-            fold_no += 1
+    # with open('pima-folds.csv', 'w') as f:
+    #     writer = csv.writer(f)
+    #     fold_no = 1
+    #     for tup in sizes:
+    #         fold = []
+    #         for i in range(tup[0]):
+    #             fold.append(nos.pop())
+    #         for i in range(tup[1]):
+    #             fold.append(yeses.pop())
+    #         folds.append(np.asarray(fold))
+    #         writer.writerow(['fold' + str(fold_no)])
+    #         for row in fold:
+    #             writer.writerow(row)
+    #         fold_no += 1
 
     return np.asarray(np.asarray(folds))
 
@@ -56,7 +53,8 @@ def compute_class_stats(fold):
     if isinstance(fold, list):
         fold = np.asarray(fold)
 
-    no = fold[fold[:, -1] == 'no'][:, :-1].astype(np.float64)  # filter on no, slice off the class, cast as float
+    # filter on yes/no, slice off the class, cast as float
+    no = fold[fold[:, -1] == 'no'][:, :-1].astype(np.float64)
     yes = fold[fold[:, -1] == 'yes'][:, :-1].astype(np.float64)
     no_mean = np.mean(no, axis=0, dtype=np.float64)
     yes_mean = np.mean(yes, axis=0, dtype=np.float64)
@@ -90,7 +88,6 @@ def compute_class_stats(fold):
     row2 = np.asarray(row2)
     header = np.vstack((row1, row2))
     fold = np.vstack((header, fold))
-    # pprint(fold)
     return fold
 
 
@@ -132,7 +129,6 @@ def NB_predict(train_data, test_data):
     return results
 
 
-##### KNN
 def euclid(vec1, vec2):
     return np.linalg.norm(vec1 - vec2)
 
@@ -142,18 +138,12 @@ def KNN_predict(train_data, row, n):
     train_data = np.asarray(train_data)
     search_row = np.asarray(row)
     for row in train_data:
-        # row_snip = row
-        # if row.shape[0] > search_row.shape[0]:
-        #     row_snip = row[:-1]
         new_dist = -euclid(search_row.astype(np.float64), row[:-1].astype(np.float64))
         if len(nearest) < n:
-            # print('push #')
             heapq.heappush(nearest, (new_dist, row[-1]))
         else:
             if min(nearest)[0] < new_dist:
-                # print('push', (new_dist, row[-1]))
                 heapq.heapreplace(nearest, (new_dist, row[-1]))
-        # print(nearest)
         heapq.heapify(nearest)
     try:
         return mode([i[1] for i in nearest])
@@ -167,7 +157,6 @@ def cross_validate(folds):
     oneNN_accuracies = []
     fiveNN_accuracies = []
     for i in range(10):
-        test_data = folds[i]
         test_data_classes = folds[i][:, -1]
         test_data = folds[i][:, :-1]  # remove class
         train_data = np.concatenate([folds[:i], folds[i + 1:]])
@@ -183,6 +172,7 @@ def cross_validate(folds):
             one_NN_predictions.append(KNN_predict(new_train_data, row, 1))
             five_NN_predictions.append(KNN_predict(new_train_data, row, 5))
         predictions = [NB_predictions, one_NN_predictions, five_NN_predictions]
+
         for idx, predicts in enumerate(predictions):
             result = []
             for idx1, item in enumerate(predicts):
@@ -198,22 +188,21 @@ def cross_validate(folds):
                 oneNN_accuracies.append(accuracy)
             elif idx == 2:
                 fiveNN_accuracies.append(accuracy)
-    print('NB Cross-validated accuracy: ', np.around(np.mean(NB_accuracies)*100, 4), '%')
-    print('1NN Cross-validated accuracy: ', np.around(np.mean(oneNN_accuracies)*100, 4), '%')
-    print('5NN Cross-validated accuracy: ', np.around(np.mean(fiveNN_accuracies)*100, 4), '%')
+    print('NB Cross-validated accuracy: ', np.around(np.mean(NB_accuracies) * 100, 4), '%')
+    print('1NN Cross-validated accuracy: ', np.around(np.mean(oneNN_accuracies) * 100, 4), '%')
+    print('5NN Cross-validated accuracy: ', np.around(np.mean(fiveNN_accuracies) * 100, 4), '%')
+
 
 if __name__ == '__main__':
     train_data = read(sys.argv[1])
     test_data = read(sys.argv[2])
     folds = gen_folds(train_data)
-    # pprint(folds)
 
     if sys.argv[3] == 'NB':
         for i in NB_predict(compute_class_stats(train_data), test_data):
             print(i)
     elif sys.argv[3] == 'acc':
         cross_validate(folds)
-        # print(cross_validate(KNN_predict, folds))
     else:
         # otherwise run KNN and grab n from the start
         n = int(sys.argv[3][0])
